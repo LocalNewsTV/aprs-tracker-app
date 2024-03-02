@@ -1,0 +1,36 @@
+{
+  "api_key": "your key acquired from APRS.fi",
+  "title": "Title that will show in Application",
+  "locations": {
+    "transport_method": {
+      "your_key": {
+        "callsign": "<what you're tracking>",
+        "image": "FileName.png"
+      }
+    },
+    "your_key": {
+      "label": "<Label>",
+      "image": "FileName.png",
+      "latitude": {
+        "min": 0,
+        "max": 0
+      },
+      "longitude": {
+        "min": 0,
+        "max": 0
+      }
+    },
+    "next_key": {
+      "label": "<Label>",
+      "image": "FileName.png",
+      "latitude": {
+        "min": 0,
+        "max": 0
+      },
+      "longitude": {
+        "min": 0,
+        "max": 0
+      }
+    }
+  }
+}
