@@ -1,11 +1,7 @@
+import json, time, webbrowser, requests
 import tkinter as tk
 from tkinter import messagebox
-import requests
 from dotenv import load_dotenv
-import os
-import json
-import time
-import webbrowser
 from datetime import datetime
 from PIL import ImageTk, Image
 
@@ -29,7 +25,10 @@ JSON_DUMP = json.load(FILE)
 APP_TITLE = JSON_DUMP.get("title", "aprs.fi Companion")
 CUSTOM_USER_LOCATIONS = JSON_DUMP.get('locations', {})
 CUSTOM_USER_TRANSPORT = JSON_DUMP.get('transport_method', {})
-API_KEY = JSON_DUMP.get('api_key', None)
+APRS_API_KEY = JSON_DUMP.get('api_key', None)
+GEOAPIFY_KEY = JSON_DUMP.get("geoapify_key", None)
+
+
 class APRS_Tracker(tk.Tk):
     current_activity = "UNKNOWN"
     current_activity_image = PLACEHOLDER_IMG
@@ -48,7 +47,7 @@ class APRS_Tracker(tk.Tk):
         self.geometry(WINDOW_SIZE)
         self.resizable(False, False)
         self.current_activity_label = tk.Label(self, text=f"Unknown")
-        self.URL = f"https://api.aprs.fi/api/get?name={self.get_api_targets()}&what=loc&apikey={API_KEY}&format=json"
+        self.URL = f"https://api.aprs.fi/api/get?name={self.get_api_targets()}&what=loc&apikey={APRS_API_KEY}&format=json"
         picture_frame = tk.Frame(self,)
         image = Image.open(IMAGE_FOLDER + PLACEHOLDER_IMG).resize(IMAGE_SIZE, Image.LANCZOS)
         image_in_frame = ImageTk.PhotoImage(image)
@@ -60,7 +59,7 @@ class APRS_Tracker(tk.Tk):
         self.current_activity_label.pack()
         self.create_lat_long_label()
         self.create_travel_information_label()
-        self.fetch_api_data()
+        self.fetch_aprs_api_data()
         self.create_live_link_button()
 
     def create_travel_information_label(self,):
@@ -86,6 +85,19 @@ class APRS_Tracker(tk.Tk):
         newLabel = f"Latitude: {self.latitude} Longitude: {self.longitude}"
         self.lat_long_label.config(text=newLabel)
     
+    def update_address_label(self, ):
+        """Uses GeoAPIfy to translate Lat long into an address, if not configured or error occurs, updates to lat long information"""
+        api_target =f"https://api.geoapify.com/v1/geocode/reverse?lat={self.latitude}&apiKey={GEOAPIFY_KEY}&lon={self.longitude}"
+        try:
+            http_response = requests.get(url=api_target, headers=HEADERS)
+            latest_information = http_response.json().get('features', None)[0].get('properties', None)
+            address = latest_information.get('address_line1', None) + ", "
+            city = latest_information.get('city', None)
+            newLabel = f"{address} {city}"
+            self.lat_long_label.config(text=newLabel)
+        except Exception:
+            self.update_lat_long_label()
+      
     def create_live_link_button(self,):
         self.button = tk.Button(
             text="View in Browser",
@@ -135,7 +147,7 @@ class APRS_Tracker(tk.Tk):
     
     def update_fields(self,):
         self.set_tracker_image_based_on_activity()
-        self.update_lat_long_label()
+        self.update_address_label()
         self.update_activity_icon()
         self.update_current_activity_label()
         self.update_travel_information_label()
@@ -152,7 +164,7 @@ class APRS_Tracker(tk.Tk):
         self.picture_label.image = image
 
         
-    def fetch_api_data(self,):
+    def fetch_aprs_api_data(self,):
         """Calls API to get information about all targets,
         Sorts the list of results by time and sets api_data to most recent update"""
         try:
@@ -171,7 +183,7 @@ class APRS_Tracker(tk.Tk):
             self.throw_error_popup(e)
         finally:
             time_til_next_update = 3 * 60 * 1000 if self.is_moving() else 15 * 60 * 1000
-            self.after(time_til_next_update, lambda: self.fetch_api_data())
+            self.after(time_til_next_update, lambda: self.fetch_aprs_api_data())
         
     def where_in_the_world_is_carmen_sandiego(self):
         """Using the locations in User_Information, compares latitude and longitudes to find a bounding box"""
