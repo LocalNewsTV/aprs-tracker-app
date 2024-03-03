@@ -1,5 +1,6 @@
 {
-  "api_key": "your key acquired from APRS.fi",
+  "geoapify_key": "api key acquired from geoapify",
+  "api_key": "your api key acquired from APRS.fi",
   "title": "Title that will show in Application",
   "transport_method": {
     "your_key": {

@@ -10,6 +10,7 @@ The aprs-tracker-app is customizable. To start off, rename or duplicate the `use
 > Tkinter comes packaged with Windows versions of Python, additional installations may be required if using a different OS
 
 1. get your API Key by creating an account at [APRS.fi](https://aprs.fi/account/).=
+1. Optional You can add an api key from [Geoapify](https://www.geoapify.com/), this will convert your lat/long information to addresses
 1. Install the python packages from requirements.txt
 1. Fill out the `user_information.json` with your information
 1. Run the application
