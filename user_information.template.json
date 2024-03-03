@@ -1,13 +1,13 @@
 {
   "api_key": "your key acquired from APRS.fi",
   "title": "Title that will show in Application",
+  "transport_method": {
+    "your_key": {
+      "callsign": "<what you're tracking>",
+      "image": "FileName.png"
+    }
+  },
   "locations": {
-    "transport_method": {
-      "your_key": {
-        "callsign": "<what you're tracking>",
-        "image": "FileName.png"
-      }
-    },
     "your_key": {
       "label": "<Label>",
       "image": "FileName.png",

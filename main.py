@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import messagebox
 import requests
 from dotenv import load_dotenv
 import os
@@ -7,16 +8,14 @@ import time
 import webbrowser
 from datetime import datetime
 from PIL import ImageTk, Image
-load_dotenv()
 
+load_dotenv()
 
 # Image Constants
 IMAGE_FOLDER = "./app_images/"
-UNKNOWN_IMG = "unknown.svg.png"
+UNKNOWN_IMG = "unknown.png"
 PLACEHOLDER_IMG = "smiley.png"
-PARKED_IMG ="unknown.svg.png"
-
-#Tracked Vehicle Constants
+PARKED_IMG ="parkingspot.png"
 
 # App Constants
 CUSTOM_INFORMATION_FILE = "user_information.json"
@@ -41,6 +40,7 @@ class APRS_Tracker(tk.Tk):
     api_data: dict
     button: tk.Button
     isMoving: bool
+    current_location: dict
     
     def __init__(self):
         super().__init__()
@@ -72,7 +72,7 @@ class APRS_Tracker(tk.Tk):
         course = self.api_data.get("course", None)
         speed = round(self.api_data.get("speed", 0))
         newLabel = ""
-        if course and speed > 0:
+        if self.is_moving():
             newLabel = f"Travelling {course}° {self.get_direction_of_travel()} at {speed} km/h"
         self.travel_information_label.config(text=newLabel)
     
@@ -96,7 +96,9 @@ class APRS_Tracker(tk.Tk):
         )
         self.button.bind("<Button 1>", self.handle_live_link_button_click)
         self.button.pack()
-        
+    
+    def throw_error_popup(error):
+        messagebox.showerror('An Error Occurred', 'Error: {error}')
     
     def handle_live_link_button_click(self, event):
         url = "https://en.aprs.fi/"
@@ -106,6 +108,11 @@ class APRS_Tracker(tk.Tk):
         webbrowser.open(url)
     
     def get_direction_of_travel(self):
+        """Converts the 'course' (angle) returned by the API into compass direction.
+
+        Returns:
+            String: Compass value based on current course
+        """
         course = self.api_data.get('course', None)
         if not course:
             return ""
@@ -134,12 +141,12 @@ class APRS_Tracker(tk.Tk):
         self.update_travel_information_label()
         
     def update_activity_icon(self,):
+        """Updates the image displayed in the app with the most recent activity"""
         try:
             image = Image.open(IMAGE_FOLDER + self.current_activity_image).resize(IMAGE_SIZE, Image.LANCZOS)
         except Exception as e:
-            print(e)
             image = Image.open(IMAGE_FOLDER + PLACEHOLDER_IMG).resize(IMAGE_SIZE, Image.LANCZOS)
-            
+            self.throw_error_popup(e)
         image = ImageTk.PhotoImage(image)
         self.picture_label.configure(image=image)
         self.picture_label.image = image
@@ -161,27 +168,23 @@ class APRS_Tracker(tk.Tk):
             self.longitude = self.api_data.get('lng', 0)
             self.update_fields()
         except Exception as e:
-            print(e)
-        finally:    
-            self.after(180000, lambda: self.fetch_api_data())
+            self.throw_error_popup(e)
+        finally:
+            time_til_next_update = 3 * 60 * 1000 if self.is_moving() else 15 * 60 * 1000
+            self.after(time_til_next_update, lambda: self.fetch_api_data())
         
     def where_in_the_world_is_carmen_sandiego(self):
-        """Using the locations in User_Information, compares latitude and longitudes to find a bounding box
-        
-        Returns:
-            Dict: Location information described by user_information.json
-        """
+        """Using the locations in User_Information, compares latitude and longitudes to find a bounding box"""
         for location in CUSTOM_USER_LOCATIONS:
-            self.isMoving = True
             latMin =  float(CUSTOM_USER_LOCATIONS[location]['latitude']['min']) or 0
             latMax =  float(CUSTOM_USER_LOCATIONS[location]['latitude']['max']) or 0
             longMin = float(CUSTOM_USER_LOCATIONS[location]['longitude']['min']) or 0
             longMax = float(CUSTOM_USER_LOCATIONS[location]['longitude']['max']) or 0
             if latMin < float(self.latitude) < latMax and \
                 longMin < float(self.longitude) < longMax:
-                self.isMoving = False
-                return CUSTOM_USER_LOCATIONS[location]
-        return { "label": "Driving", "image": self.select_vehicle_image() }
+                self.current_location = CUSTOM_USER_LOCATIONS[location]
+                return
+        self.current_location = { "label": "Driving", "image": self.select_vehicle_image() }
     
     def update_current_activity_label(self,):
         """Updates the current Activity Label showing Time of last update, and activity being enacted"""
@@ -191,20 +194,26 @@ class APRS_Tracker(tk.Tk):
         newLabel = f"Last seen: {time_string} {self.current_activity}"
         self.current_activity_label.config(text=newLabel)
         
-    def is_moving(self,):
-        TIME_TO_IDLE = 15 * 1000 * 60 # fifteen minutes
+    def is_moving(self, time_to_idle = 15 * 60):
+        """Compares time of last broadcast to see if within params
+
+        Args:
+            time_to_idle (int, optional): User definition of when data is stale. Defaults to 15 minutes.
+
+        Returns:
+           Boolean: If current API Data is stale
+        """
         last_update_time = self.api_data.get('time', 0)
-        return int(last_update_time) > int(time.time()) - TIME_TO_IDLE
+        return int(last_update_time) > (int(time.time()) - time_to_idle)
     
     def set_tracker_image_based_on_activity(self,):
         """Parses the last update time and activity to determine if driving, at a location, or MIA"""
-        current_location_information = self.where_in_the_world_is_carmen_sandiego()
-        if not self.is_moving() and current_location_information['label'] == "Driving":
-            current_location_information['image'] = PARKED_IMG
-            self.isMoving = False
+        self.where_in_the_world_is_carmen_sandiego()
+        if not self.is_moving() and self.current_location['label'] == "Driving":
+            self.current_location['image'] = PARKED_IMG
                 
-        self.current_activity = current_location_information['label']
-        self.current_activity_image = current_location_information['image']
+        self.current_activity = self.current_location.get('label', "Invalid Label")
+        self.current_activity_image = self.current_location.get('image', PLACEHOLDER_IMG)
  
     def select_vehicle_image(self,):
         """When driving, compares the name key (Tracked ID) to match the appropriate travel image """
@@ -215,6 +224,7 @@ class APRS_Tracker(tk.Tk):
         return PLACEHOLDER_IMG
 
     def get_api_targets(self,):
+        "Parses list of targets in the user_information file to use in the API Calls"
         tracking_list = ""
         for entry in CUSTOM_USER_TRANSPORT:
             tracking_list += CUSTOM_USER_TRANSPORT[entry].get("callsign", "").upper() + ","
