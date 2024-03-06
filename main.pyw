@@ -69,7 +69,7 @@ class APRS_Tracker(tk.Tk):
         
     def update_travel_information_label(self,):
         course = self.api_data.get("course", None)
-        speed = round(self.api_data.get("speed", 0))
+        speed = round(float(self.api_data.get("speed", 0)))
         newLabel = ""
         if self.is_moving():
             newLabel = f"Travelling {course}° {self.get_direction_of_travel()} at {speed} km/h"
@@ -109,8 +109,8 @@ class APRS_Tracker(tk.Tk):
         self.button.bind("<Button 1>", self.handle_live_link_button_click)
         self.button.pack()
     
-    def throw_error_popup(error):
-        messagebox.showerror('An Error Occurred', 'Error: {error}')
+    def throw_error_popup(self, error):
+        messagebox.showerror('An Error Occurred', f'Error: {error}')
     
     def handle_live_link_button_click(self, event):
         url = "https://en.aprs.fi/"
